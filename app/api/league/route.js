@@ -195,7 +195,7 @@ export async function GET(request) {
         if (b.winPercentage != null) return 1;
         return a.name.localeCompare(b.name);
       })
-      .map((team, index) => ({ ...team, rank: index + 1 }));
+      .map((team, index) => ({ ...team, rank: team.rating != null || team.played > 0 ? index + 1 : null }));
     const rankingsProvisional = rankings.every((team) => team.rating == null && team.played === 0);
 
     const result = {
