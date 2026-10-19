@@ -26,7 +26,12 @@ export async function POST(request) {
       headers:{"x-goog-api-key":process.env.GEMINI_API_KEY,"Content-Type":"application/json"},
       body:JSON.stringify({contents:prompt,generationConfig:{maxOutputTokens:650,temperature:0.3}})
     });
-    if (!ai.ok) return Response.json({error:"No se pudo conectar con Gemini. Revisa la clave, el modelo y los límites gratuitos."},{status:502});
+    if (!ai.ok) {
+      const failure = await ai.json().catch(() => ({}));
+      const code = failure?.error?.status || "HTTP_" + ai.status;
+      const hint = ai.status === 429 ? "Se alcanzó el límite gratuito de Gemini." : ai.status === 403 ? "Gemini rechazó los permisos o el acceso del proyecto." : ai.status === 404 ? "El modelo seleccionado no está disponible." : ai.status === 400 ? "Gemini rechazó el formato o tamaño de la solicitud." : ai.status === 401 ? "Gemini no aceptó la clave configurada." : "Gemini devolvió un error.";
+      return Response.json({error:hint+" Código: "+code+" ("+ai.status+")."},{status:502});
+    }
     const result = await ai.json();
     const reply = result.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("").trim();
     return Response.json({reply:reply || "No recibí respuesta del modelo."});
