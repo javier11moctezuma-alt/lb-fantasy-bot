@@ -14,7 +14,15 @@ function analyze(query, data) {
     names.find((item) => q.includes(normalize(item.name || item.teamName)));
   if (/ayuda|puedes hacer|comandos|hola/.test(q)) return "¡Hola! 🏀 Puedo consultar equipos, plantillas, rankings, agentes libres y transacciones de tu liga. Prueba los ejemplos de abajo.";
   if (/agente|libre|free agent|disponible/.test(q)) return agents.length ? "Agentes libres disponibles (primeros 15):\n" + agents.slice(0, 15).map((p) => "• " + (p.name || "Jugador #" + p.id)).join("\n") : "ESPN no devolvió agentes libres en este momento.";
-  if (/transaccion|movimiento|cambio reciente|trade reciente/.test(q)) return transactions.length ? "Últimos movimientos disponibles:\n" + transactions.slice(0, 8).map((t) => "• " + (t.type || "Movimiento") + ": " + (t.items || []).map((i) => (i.type || "") + " " + (i.playerName || "Jugador #" + i.playerId)).join(", ")).join("\n") : "ESPN no devolvió transacciones recientes.";
+  if (/mejorar|recomienda|recomendacion|que movimientos|que cambios|que trade|que fichaje|a quien fichar|a quien cambiar|deberia hacer/.test(q)) {
+    const team = match(rosters);
+    if (team) {
+      const names = (team.players || []).map((p) => p.name || "Jugador #" + p.id);
+      return "Para recomendar movimientos a " + team.teamName + " necesito comparar estadísticas por categoría y agentes libres. Todavía no tengo ese análisis implementado y no quiero inventar trades.\\n\\nPlantilla actual:\\n" + names.map((n) => "• " + n).join("\\n") + "\\n\\nPuedo mostrar agentes libres, pero todavía no evaluar cuáles mejorarían al equipo.";
+    }
+    return "Para recomendar mejoras necesito identificar el equipo y analizar estadísticas por categoría. Todavía no puedo dar recomendaciones confiables. Pregúntame por la plantilla de un equipo o por agentes libres.";
+  }
+  if (/transaccion|ultimos movimientos|movimientos recientes|cambio reciente|trade reciente/.test(q)) return transactions.length ? "Últimos movimientos disponibles:\n" + transactions.slice(0, 8).map((t) => "• " + (t.type || "Movimiento") + ": " + (t.items || []).map((i) => (i.type || "") + " " + (i.playerName || "Jugador #" + i.playerId)).join(", ")).join("\n") : "ESPN no devolvió transacciones recientes.";
   if (/roster|plantilla|jugadores|tiene|equipo de/.test(q)) {
     const team = match(rosters);
     if (team) return "Plantilla de " + team.teamName + ":\n" + (team.players || []).map((p) => "• " + (p.name || "Jugador #" + p.id)).join("\n");
