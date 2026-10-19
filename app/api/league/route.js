@@ -8,7 +8,7 @@ export async function GET(request) {
 
   const views = {
     teams: ["mTeam"],
-    rankings: ["mTeam"],
+    rankings: ["mTeam", "mRoster"],
     rosters: ["mRoster", "mTeam"],
     freeagents: ["kona_player_info"],
     transactions: ["mTransactions2", "mTeam", "mRoster", "kona_player_info"]
@@ -94,7 +94,8 @@ export async function GET(request) {
           roster: (team.roster?.entries || []).map((entry) => ({
             id: entry.playerId ?? entry.playerPoolEntry?.player?.id,
             name: entry.playerPoolEntry?.player?.fullName ?? null,
-            lineupSlotId: entry.lineupSlotId
+            lineupSlotId: entry.lineupSlotId,
+            stats: entry.playerPoolEntry?.player?.stats || []
           }))
         }))
       : [];
@@ -142,12 +143,49 @@ export async function GET(request) {
         }))
       }));
 
+    // ESPN statSourceId: 0 = actual, 1 = projected. Only use ESPN's
+    // precomputed fantasy totals when available; never fabricate player ratings.
+    function statTotal(player, source) {
+      const candidates = (player.stats || [])
+        .filter((stat) => stat.statSourceId === source && Number.isFinite(stat.appliedTotal));
+      const season = candidates.find((stat) => stat.scoringPeriodId === 0);
+      return (season || candidates[0])?.appliedTotal ?? null;
+    }
+    const rosterScores = teams.map((team) => {
+      const players = team.roster || [];
+      const projected = players.map((p) => statTotal(p, 1)).filter((v) => v != null);
+      const actual = players.map((p) => statTotal(p, 0)).filter((v) => v != null);
+      const avg = (values) => values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+      return { id: team.id, projected: avg(projected), actual: avg(actual),
+        projectedCount: projected.length, actualCount: actual.length };
+    });
+    const normalized = (value, values) => {
+      if (value == null) return null;
+      const available = values.filter((v) => v != null);
+      if (available.length < 2) return null;
+      const low = Math.min(...available), high = Math.max(...available);
+      return high === low ? 50 : Math.round(100 * (value - low) / (high - low));
+    };
+    const ratingById = new Map(rosterScores.map((score) => {
+      const projectionRating = normalized(score.projected, rosterScores.map((r) => r.projected));
+      const actualRating = normalized(score.actual, rosterScores.map((r) => r.actual));
+      const rating = projectionRating != null && actualRating != null
+        ? Math.round(0.65 * projectionRating + 0.35 * actualRating)
+        : projectionRating ?? actualRating;
+      return [score.id, { rating, projectionRating, actualRating,
+        ratingSource: projectionRating != null && actualRating != null ? "65% proyección / 35% rendimiento" :
+          projectionRating != null ? "Solo proyección" : actualRating != null ? "Solo rendimiento" : "Datos insuficientes" }];
+    }));
+
     const rankings = teams
       .map(({ roster, ...team }) => {
         const played = (team.wins || 0) + (team.losses || 0) + (team.ties || 0);
-        return { ...team, played, winPercentage: played ? ((team.wins || 0) + (team.ties || 0) / 2) / played : null };
+        return { ...team, ...ratingById.get(team.id), played, winPercentage: played ? ((team.wins || 0) + (team.ties || 0) / 2) / played : null };
       })
       .sort((a, b) => {
+        if (a.rating != null && b.rating != null) return b.rating - a.rating || a.name.localeCompare(b.name);
+        if (a.rating != null) return -1;
+        if (b.rating != null) return 1;
         if (a.winPercentage != null && b.winPercentage != null) {
           return b.winPercentage - a.winPercentage ||
             (b.pointsFor ?? 0) - (a.pointsFor ?? 0) ||
@@ -158,7 +196,7 @@ export async function GET(request) {
         return a.name.localeCompare(b.name);
       })
       .map((team, index) => ({ ...team, rank: index + 1 }));
-    const rankingsProvisional = rankings.every((team) => team.played === 0);
+    const rankingsProvisional = rankings.every((team) => team.rating == null && team.played === 0);
 
     const result = {
       leagueId: LEAGUE_ID,
