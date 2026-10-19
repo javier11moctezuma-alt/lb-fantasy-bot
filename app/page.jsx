@@ -18,7 +18,7 @@ function TransactionDetails({ item }) {
   const type = String(item.type || item.transactionType || "Movimiento").replace(/_/g, " ");
   return (
     <div style={{ color: "#d4d4d8" }}>
-      <p style={{ margin: "4px 0 12px", textTransform: "capitalize", color: "#c4b5fd" }}>{type}{date ? " · " + date : ""}</p>
+      <p style={{ margin: "4px 0 12px", textTransform: "capitalize", color: "#c4b5fd" }}>{type}{date ? " · " + date : ""}{item.teamName ? " · " + item.teamName : ""}</p>
       {actions.length > 0 ? (
         <ul style={{ paddingLeft: 20 }}>
           {actions.map((action, i) => (
@@ -26,7 +26,7 @@ function TransactionDetails({ item }) {
               {action.type === "ADD" ? "➕ Agregó" : action.type === "DROP" ? "➖ Soltó" : action.type || "Movimiento"}
               {" · "}
               {action.player?.fullName || action.playerName || (action.playerId ? "Jugador #" + action.playerId : "Jugador sin nombre")}
-              {action.toTeamId != null ? " · Equipo #" + action.toTeamId : ""}
+              {action.toTeamName ? " · A: " + action.toTeamName : ""}{action.fromTeamName ? " · De: " + action.fromTeamName : ""}
             </li>
           ))}
         </ul>
