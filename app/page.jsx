@@ -9,6 +9,34 @@ const sections = [
   ["transactions", "Transacciones"]
 ];
 
+function TransactionDetails({ item }) {
+  const actions = Array.isArray(item.items) ? item.items : [];
+  const time = item.processDate || item.executionDate || item.proposedDate || item.date;
+  const date = typeof time === "number" && time > 1000000000
+    ? new Date(time < 10000000000 ? time * 1000 : time).toLocaleDateString("es-MX")
+    : null;
+  const type = String(item.type || item.transactionType || "Movimiento").replace(/_/g, " ");
+  return (
+    <div style={{ color: "#d4d4d8" }}>
+      <p style={{ margin: "4px 0 12px", textTransform: "capitalize", color: "#c4b5fd" }}>{type}{date ? " · " + date : ""}</p>
+      {actions.length > 0 ? (
+        <ul style={{ paddingLeft: 20 }}>
+          {actions.map((action, i) => (
+            <li key={i} style={{ marginBottom: 8 }}>
+              {action.type === "ADD" ? "➕ Agregó" : action.type === "DROP" ? "➖ Soltó" : action.type || "Movimiento"}
+              {" · "}
+              {action.player?.fullName || action.playerName || (action.playerId ? "Jugador #" + action.playerId : "Jugador sin nombre")}
+              {action.toTeamId != null ? " · Equipo #" + action.toTeamId : ""}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p style={{ color: "#a1a1aa" }}>ESPN no proporcionó detalles de jugadores para este movimiento.</p>
+      )}
+    </div>
+  );
+}
+
 export default function Home() {
   const [section, setSection] = useState("teams");
   const [data, setData] = useState(null);
@@ -59,11 +87,11 @@ export default function Home() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 16 }}>
             {list.map((item, i) => (
               <article key={item.id ?? item.teamId ?? i} style={{ background: "#1d1d2b", border: "1px solid #343449", padding: 20, borderRadius: 18 }}>
-                <h2 style={{ fontSize: 19, marginTop: 0 }}>{item.name || item.teamName || item.player?.fullName || "Registro " + (i + 1)}</h2>
+                <h2 style={{ fontSize: 19, marginTop: 0 }}>{item.name || item.teamName || item.player?.fullName || (section === "transactions" ? "Movimiento " + (i + 1) : "Registro " + (i + 1))}</h2>
                 {section === "teams" && <p style={{ color: "#a1a1aa" }}>Victorias: {item.wins ?? "—"} · Derrotas: {item.losses ?? "—"}</p>}
                 {section === "rosters" && <ul style={{ paddingLeft: 20, color: "#d4d4d8" }}>{(item.players || []).map((p, j) => <li key={p.id ?? j}>{p.name || "Jugador " + (p.id ?? j + 1)}</li>)}</ul>}
                 {section === "freeagents" && <p style={{ color: "#a1a1aa" }}>Rostered: {item.percentOwned == null ? "—" : item.percentOwned.toFixed(1) + "%"}</p>}
-                {section === "transactions" && <pre style={{ overflowX: "auto", fontSize: 12, color: "#d4d4d8" }}>{JSON.stringify(item, null, 2)}</pre>}
+                {section === "transactions" && <TransactionDetails item={item} />}
               </article>
             ))}
           </div>
