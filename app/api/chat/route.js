@@ -27,18 +27,27 @@ export async function POST(request) {
       return Response.json({error:"Gemini no permitió consultar los modelos disponibles. Código: "+(failure?.error?.status || modelsResponse.status)+" ("+modelsResponse.status+")."},{status:502});
     }
     const available = await modelsResponse.json();
-    const choices = ["gemini-2.5-flash","gemini-2.5-flash-lite","gemini-2.0-flash","gemini-1.5-flash"];
+    const choices = ["gemini-2.5-flash-lite","gemini-2.5-flash","gemini-2.0-flash-lite","gemini-2.0-flash"];
     const models = (available.models || []).filter(m => m.supportedGenerationMethods?.includes("generateContent"));
-    const selected = choices.map(name => models.find(m => m.name === "models/"+name)).find(Boolean) || models.find(m => /gemini.*flash/i.test(m.name));
-    if (!selected) return Response.json({error:"Esta clave no tiene modelos Gemini Flash disponibles para generar respuestas."},{status:502});
-    const ai = await fetch("https://generativelanguage.googleapis.com/v1beta/"+selected.name+":generateContent", {
-      method:"POST",headers,body:JSON.stringify({contents:prompt,generationConfig:{maxOutputTokens:650,temperature:0.3}})
-    });
-    if (!ai.ok) {
+    const preferred = choices.map(name => models.find(m => m.name === "models/"+name)).filter(Boolean);
+    const fallback = models.filter(m => /gemini.*flash/i.test(m.name) && !preferred.includes(m));
+    const candidates = [...preferred,...fallback].slice(0,5);
+    if (!candidates.length) return Response.json({error:"Esta clave no tiene modelos Gemini Flash disponibles para generar respuestas."},{status:502});
+    let ai;
+    const failures = [];
+    for (const selected of candidates) {
+      ai = await fetch("https://generativelanguage.googleapis.com/v1beta/"+selected.name+":generateContent", {
+        method:"POST",headers,body:JSON.stringify({contents:prompt,generationConfig:{maxOutputTokens:650,temperature:0.3}})
+      });
+      if (ai.ok) break;
       const failure = await ai.json().catch(() => ({}));
-      const code = failure?.error?.status || "HTTP_" + ai.status;
-      const hint = ai.status === 429 ? "Se alcanzó el límite gratuito de Gemini." : ai.status === 403 ? "Gemini rechazó los permisos o el acceso del proyecto." : ai.status === 404 ? "Gemini no pudo utilizar "+selected.name+"." : ai.status === 400 ? "Gemini rechazó el formato o tamaño de la solicitud." : ai.status === 401 ? "Gemini no aceptó la clave configurada." : "Gemini devolvió un error.";
-      return Response.json({error:hint+" Código: "+code+" ("+ai.status+")."},{status:502});
+      failures.push(selected.name+" "+ai.status+" "+(failure?.error?.status || ""));
+      if (![404,400].includes(ai.status)) break;
+    }
+    if (!ai?.ok) {
+      const status = ai?.status || 502;
+      const hint = status === 429 ? "Se alcanzó el límite gratuito de Gemini." : status === 403 ? "Gemini rechazó el acceso de este proyecto." : status === 404 ? "Google no permite generar respuestas con los modelos probados." : "Gemini rechazó la solicitud.";
+      return Response.json({error:hint+" Intentos: "+failures.join("; ").slice(0,240)},{status:502});
     }
     const result = await ai.json();
     const reply = result.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("").trim();
