@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 const sections = [
   ["teams", "Equipos"],
+  ["rankings", "🏆 Power Rankings"],
   ["rosters", "Plantillas"],
   ["freeagents", "Agentes libres"],
   ["transactions", "Transacciones"]
@@ -83,11 +84,13 @@ export default function Home() {
       {!loading && !error && (
         <>
           <p style={{ color: "#a1a1aa" }}>{list.length} registros encontrados</p>
+          {section === "rankings" && <p style={{ color: "#c4b5fd" }}>{data?.rankingsProvisional ? "Clasificación provisional: todavía no hay resultados. Los equipos se muestran en orden alfabético, no por fuerza." : "Ranking basado en resultados de ESPN (no predicción de talento)."}</p>}
           {list.length === 0 && <p>ESPN no devolvió registros para esta sección todavía.</p>}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 16 }}>
             {list.map((item, i) => (
               <article key={item.id ?? item.teamId ?? i} style={{ background: "#1d1d2b", border: "1px solid #343449", padding: 20, borderRadius: 18 }}>
-                <h2 style={{ fontSize: 19, marginTop: 0 }}>{item.name || item.teamName || item.player?.fullName || (section === "transactions" ? "Movimiento " + (i + 1) : "Registro " + (i + 1))}</h2>
+                <h2 style={{ fontSize: 19, marginTop: 0 }}>{(section === "rankings" ? "#" + item.rank + " · " + item.name : item.name) || item.teamName || item.player?.fullName || (section === "transactions" ? "Movimiento " + (i + 1) : "Registro " + (i + 1))}</h2>
+                {section === "rankings" && <p style={{ color: "#a1a1aa" }}>{item.played ? "Récord: " + item.wins + "-" + item.losses + " · Victorias: " + (item.winPercentage * 100).toFixed(1) + "%" : "Sin partidos disputados"}{item.pointsFor != null ? " · Puntos: " + item.pointsFor : ""}</p>}
                 {section === "teams" && <p style={{ color: "#a1a1aa" }}>Victorias: {item.wins ?? "—"} · Derrotas: {item.losses ?? "—"}</p>}
                 {section === "rosters" && <ul style={{ paddingLeft: 20, color: "#d4d4d8" }}>{(item.players || []).map((p, j) => <li key={p.id ?? j}>{p.name || "Jugador " + (p.id ?? j + 1)}</li>)}</ul>}
                 {section === "freeagents" && <p style={{ color: "#a1a1aa" }}>Rostered: {item.percentOwned == null ? "—" : item.percentOwned.toFixed(1) + "%"}</p>}
