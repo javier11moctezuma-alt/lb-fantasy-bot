@@ -50,17 +50,18 @@ export default function LeagueChat() {
     setMessages((prev) => [...prev, { role: "user", text: query }]);
     setBusy(true);
     try {
-      const response = await fetch("/api/league?type=all", { cache: "no-store" });
+      const history = [...messages.map((m) => ({ role: m.role === "bot" ? "assistant" : "user", content: m.text })), { role: "user", content: query }];
+      const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: history }) });
       const body = await response.json();
-      if (!response.ok) throw new Error("ESPN no está disponible (" + response.status + ").");
-      setMessages((prev) => [...prev, { role: "bot", text: analyze(query, body) }]);
+      if (!response.ok) throw new Error(body.error || "No se pudo consultar la IA.");
+      setMessages((prev) => [...prev, { role: "bot", text: body.reply }]);
     } catch (error) {
       setMessages((prev) => [...prev, { role: "bot", text: "No pude consultar ESPN. " + error.message + " Intenta de nuevo." }]);
     } finally { setBusy(false); }
   }
   return <section aria-label="Chat de LB Fantasy Bot" style={{ background: "#1d1d2b", border: "1px solid #343449", borderRadius: 18, padding: 20, marginBottom: 28 }}>
     <h2 style={{ marginTop: 0 }}>💬 Pregúntale al bot</h2>
-    <p style={{ color: "#a1a1aa", fontSize: 13 }}>Consulta datos reales de ESPN. Versión inicial con preguntas compatibles, sin IA generativa.</p>
+    <p style={{ color: "#a1a1aa", fontSize: 13 }}>Chat con IA conectado a los datos disponibles de ESPN. Las recomendaciones dependen de la información recibida.</p>
     <div aria-live="polite" style={{ maxHeight: 350, overflowY: "auto", display: "flex", flexDirection: "column", gap: 12, padding: "12px 0" }}>
       {messages.map((message, i) => <div key={i} style={{ alignSelf: message.role === "user" ? "flex-end" : "flex-start", background: message.role === "user" ? "#4f46e5" : "#303047", borderRadius: 14, padding: "12px 14px", maxWidth: "90%", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{message.text}</div>)}
       {busy && <p role="status" style={{ color: "#a1a1aa" }}>Consultando ESPN...</p>}
