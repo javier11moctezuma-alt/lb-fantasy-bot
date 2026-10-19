@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import LeagueChat from "./LeagueChat";
 
 const sections = [
   ["teams", "Equipos"],
@@ -71,6 +72,7 @@ export default function Home() {
         <h1 style={{ fontSize: "clamp(30px, 6vw, 52px)", margin: "12px 0" }}>Tu liga, en un solo lugar 🏀</h1>
         <p style={{ color: "#a1a1aa" }}>ESPN Fantasy Basketball · Temporada 2026–27 · Liga 1576190115</p>
       </header>
+      <LeagueChat />
       <nav aria-label="Secciones de la liga" style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 28 }}>
         {sections.map(([key, title]) => (
           <button key={key} onClick={() => setSection(key)} aria-pressed={section === key}
