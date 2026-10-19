@@ -10,7 +10,7 @@ export async function GET(request) {
     teams: ["mTeam"],
     rosters: ["mRoster", "mTeam"],
     freeagents: ["kona_player_info"],
-    transactions: ["mTransactions2"]
+    transactions: ["mTransactions2", "mTeam", "mRoster", "kona_player_info"]
   };
 
   if (type !== "all" && !views[type]) {
@@ -33,7 +33,7 @@ export async function GET(request) {
     url.searchParams.append("view", view);
   }
 
-  if (type === "freeagents" || type === "all") {
+  if (type === "freeagents" || type === "transactions" || type === "all") {
     url.searchParams.append("scoringPeriodId", "1");
   }
 
@@ -104,7 +104,39 @@ export async function GET(request) {
         }))
       : [];
 
-    const transactions = data.transactions || data.transactionCounter || [];
+    const playerNames = new Map();
+    for (const entry of data.players || []) {
+      const player = entry.player || entry;
+      if (player?.id != null && player.fullName) playerNames.set(String(player.id), player.fullName);
+    }
+    for (const team of data.teams || []) {
+      for (const entry of team.roster?.entries || []) {
+        const player = entry.playerPoolEntry?.player;
+        if (player?.id != null && player.fullName) playerNames.set(String(player.id), player.fullName);
+      }
+    }
+    const teamNames = new Map(teams.map((team) => [String(team.id), team.name]));
+    const rawTransactions = Array.isArray(data.transactions) ? data.transactions : [];
+    const transactions = rawTransactions
+      .filter((transaction) => {
+        const actions = transaction.items || [];
+        return actions.some((action) => ["ADD", "DROP", "TRADE"].includes(action.type)) ||
+          ["TRADE", "WAIVER", "FREEAGENT"].includes(transaction.type);
+      })
+      .map((transaction) => ({
+        id: transaction.id,
+        type: transaction.type,
+        status: transaction.status,
+        date: transaction.processDate || transaction.executionDate || transaction.proposedDate,
+        teamName: teamNames.get(String(transaction.teamId)) || null,
+        items: (transaction.items || []).map((action) => ({
+          type: action.type,
+          playerId: action.playerId,
+          playerName: action.player?.fullName || playerNames.get(String(action.playerId)) || null,
+          fromTeamName: teamNames.get(String(action.fromTeamId)) || null,
+          toTeamName: teamNames.get(String(action.toTeamId)) || null
+        }))
+      }));
 
     const result = {
       leagueId: LEAGUE_ID,
