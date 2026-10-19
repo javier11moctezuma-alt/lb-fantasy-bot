@@ -8,6 +8,7 @@ export async function GET(request) {
 
   const views = {
     teams: ["mTeam"],
+    rankings: ["mTeam"],
     rosters: ["mRoster", "mTeam"],
     freeagents: ["kona_player_info"],
     transactions: ["mTransactions2", "mTeam", "mRoster", "kona_player_info"]
@@ -87,6 +88,9 @@ export async function GET(request) {
           name: [team.location, team.nickname].filter(Boolean).join(" ") || team.name || `Team ${team.id}`,
           wins: team.record?.overall?.wins ?? null,
           losses: team.record?.overall?.losses ?? null,
+          ties: team.record?.overall?.ties ?? 0,
+          pointsFor: team.record?.overall?.pointsFor ?? null,
+          standing: team.rankCalculatedFinal ?? team.playoffSeed ?? null,
           roster: (team.roster?.entries || []).map((entry) => ({
             id: entry.playerId ?? entry.playerPoolEntry?.player?.id,
             name: entry.playerPoolEntry?.player?.fullName ?? null,
@@ -138,10 +142,29 @@ export async function GET(request) {
         }))
       }));
 
+    const rankings = teams
+      .map(({ roster, ...team }) => {
+        const played = (team.wins || 0) + (team.losses || 0) + (team.ties || 0);
+        return { ...team, played, winPercentage: played ? ((team.wins || 0) + (team.ties || 0) / 2) / played : null };
+      })
+      .sort((a, b) => {
+        if (a.winPercentage != null && b.winPercentage != null) {
+          return b.winPercentage - a.winPercentage ||
+            (b.pointsFor ?? 0) - (a.pointsFor ?? 0) ||
+            a.name.localeCompare(b.name);
+        }
+        if (a.winPercentage != null) return -1;
+        if (b.winPercentage != null) return 1;
+        return a.name.localeCompare(b.name);
+      })
+      .map((team, index) => ({ ...team, rank: index + 1 }));
+    const rankingsProvisional = rankings.every((team) => team.played === 0);
+
     const result = {
       leagueId: LEAGUE_ID,
       season: SEASON,
       type,
+      ...(type === "all" || type === "rankings" ? { rankings, rankingsProvisional } : {}),
       ...(type === "all" || type === "teams" ? { teams: teams.map(({ roster, ...team }) => team) } : {}),
       ...(type === "all" || type === "rosters" ? { rosters: teams.map(({ id, name, roster }) => ({ teamId: id, teamName: name, players: roster })) } : {}),
       ...(type === "all" || type === "freeagents" ? { freeagents } : {}),
