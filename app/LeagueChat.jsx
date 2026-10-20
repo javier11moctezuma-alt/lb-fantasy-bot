@@ -56,14 +56,14 @@ export default function LeagueChat() {
       if (!response.ok) throw new Error(body.error || "No se pudo consultar la IA.");
       setMessages((prev) => [...prev, { role: "bot", text: body.reply }]);
     } catch (error) {
-      setMessages((prev) => [...prev, { role: "bot", text: "No pude consultar ESPN. " + error.message + " Intenta de nuevo." }]);
+      setMessages((prev) => [...prev, { role: "bot", text: "No pude completar la consulta. " + error.message + " Intenta de nuevo." }]);
     } finally { setBusy(false); }
   }
   return <section aria-label="Chat de LB Fantasy Bot" style={{ background: "#1d1d2b", border: "1px solid #343449", borderRadius: 18, padding: 20, marginBottom: 28 }}>
     <h2 style={{ marginTop: 0 }}>💬 Pregúntale al bot</h2>
     <p style={{ color: "#a1a1aa", fontSize: 13 }}>Chat con IA conectado a los datos disponibles de ESPN. Las recomendaciones dependen de la información recibida.</p>
     <div aria-live="polite" style={{ maxHeight: 350, overflowY: "auto", display: "flex", flexDirection: "column", gap: 12, padding: "12px 0" }}>
-      {messages.map((message, i) => <div key={i} style={{ alignSelf: message.role === "user" ? "flex-end" : "flex-start", background: message.role === "user" ? "#4f46e5" : "#303047", borderRadius: 14, padding: "12px 14px", maxWidth: "90%", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{message.text}</div>)}
+      {messages.map((message, i) => <div key={i} style={{ alignSelf: message.role === "user" ? "flex-end" : "flex-start", background: message.role === "user" ? "#4f46e5" : "#303047", borderRadius: 14, padding: "12px 14px", maxWidth: "90%", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{message.role === "bot" ? message.text.replace(/\*\*/g, "").replace(/\\n/g, "\n") : message.text}</div>)}
       {busy && <p role="status" style={{ color: "#a1a1aa" }}>Consultando ESPN...</p>}
     </div>
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "14px 0" }}>
